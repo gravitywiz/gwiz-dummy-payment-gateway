@@ -4,7 +4,7 @@
  * Plugin URI:   http://gravitywiz.com
  * Description:  A dummy payment gateway for testing Gravity Forms add-ons.
  * Author:       Gravity Wiz
- * Version: 1.0-beta-1.0
+ * Version:      1.0-beta-1.0
  * Author URI:   http://gravitywiz.com
  */
 

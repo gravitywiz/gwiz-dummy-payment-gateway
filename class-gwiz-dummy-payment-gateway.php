@@ -7,17 +7,13 @@ GFForms::include_payment_addon_framework();
 
 /**
  * TODO
- *   - Allow configuring things like capture/authorize to throw errors.
- *   - Allow toggling whether to use delayed flow (e.g. Stripe Checkout)
- *   - Implement UI that shows for delayed
- *   - callback()
+ *   - Callbacks (callback()) and redirect for frontend?
+ *   - Subscriptions support?
  */
 class GWiz_Dummy_Payment_Gateway extends GFPaymentAddOn {
 	private static $_instance = null;
 
 	protected $_version = GWIZ_DUMMY_PAYMENT_GATEWAY_VERSION;
-
-	protected $_supports_callbacks = true;
 
 	protected $_slug = 'gwiz-dummy-payment-gateway';
 
@@ -57,18 +53,26 @@ class GWiz_Dummy_Payment_Gateway extends GFPaymentAddOn {
 	}
 
 	/**
+	 * Add additional actions for admin.
+	 */
+	public function init_admin() {
+		parent::init_admin();
+
+		add_action( 'gform_payment_details', array( $this, 'maybe_add_payment_details_button' ), 10, 2 );
+		add_action( 'admin_init', array( $this, 'maybe_handle_payment_details_button' ), 10, 2 );
+	}
+
+	/**
 	 * Get the icon for this add-on.
 	 *
 	 * @return string
 	 */
 	public function get_menu_icon() {
-		return 'dashicons-forms';
+		return 'dashicons-code-standards';
 	}
 
 	/**
 	 * Get post payment actions config.
-	 *
-	 * @since 2.4
 	 *
 	 * @param string $feed_slug The feed slug.
 	 *
@@ -79,6 +83,180 @@ class GWiz_Dummy_Payment_Gateway extends GFPaymentAddOn {
 			'position' => 'before',
 			'setting'  => 'conditionalLogic',
 		);
+	}
+
+
+	/**
+	 * Adds buttons to payment details box if payment status allows.
+	 *
+	 * @param int   $form_id The ID of the form the entry belongs to.
+	 * @param array $entry   The current entry object.
+	 *
+	 * @return void
+	 */
+	public function maybe_add_payment_details_button( $form_id, $entry ) {
+		if ( ! $this->is_payment_gateway( $entry['id'] ) ) {
+			return;
+		}
+
+		switch ( $entry['payment_status'] ) {
+			case 'Authorized':
+				$button['label']      = __( 'Capture Payment', 'gwiz-dummy-payment-gateway' );
+				$button['api_action'] = 'capture';
+				break;
+			case 'Paid':
+				$button['label']      = __( 'Refund Payment', 'gwiz-dummy-payment-gateway' );
+				$button['api_action'] = 'refund';
+				break;
+            default:
+                _e( 'No testing actions available for this payment status.', 'gwiz-dummy-payment-gateway' );
+                return;
+		}
+
+		$spinner_url = GFCommon::get_base_url() . '/images/spinner.' . ( $this->is_gravityforms_supported( '2.5-beta' ) ? 'svg' : 'gif' );
+		?>
+        <input name="gwiz_dummy_gateway_nonce" type="hidden" value="<?php echo wp_create_nonce( 'gwiz_dummy_gateway_nonce' ); ?>"/>
+
+        <button id="gwiz_dummy_gateway_<?php echo esc_attr( $button['api_action'] ); ?>"
+                class="button"
+                name="gwiz_dummy_gateway_action"
+                value="<?php echo esc_attr( $button['api_action'] ); ?>">
+			<?php echo esc_html( $button['label'] ); ?>
+        </button>
+		<?php
+	}
+
+	/**
+	 * Handles the click of the payment details button.
+	 *
+	 * @return void
+	 */
+	public function maybe_handle_payment_details_button() {
+		if ( ! rgpost( 'gwiz_dummy_gateway_action' ) || ! rgpost( 'gwiz_dummy_gateway_nonce' ) ) {
+			return;
+		}
+
+		if ( ! wp_verify_nonce( rgpost( 'gwiz_dummy_gateway_nonce' ), 'gwiz_dummy_gateway_nonce' ) ) {
+			return;
+		}
+
+		$entry_id = rgget( 'lid' );
+		$action   = rgpost( 'gwiz_dummy_gateway_action' );
+
+		$entry = GFAPI::get_entry( sanitize_text_field( $_POST['entry_id'] ) );
+
+		if ( ! $entry ) {
+			return;
+		}
+
+		switch ( $action ) {
+			case 'capture':
+				$this->complete_payment( $entry, array(
+					'amount' => $entry['payment_amount'],
+					'transaction_id' => 'paid-' . wp_rand( 100000, 999999 ),
+				) );
+				break;
+			case 'refund':
+				$this->refund_payment( $entry, array(
+					'amount' => $entry['payment_amount'],
+					'transaction_id' => 'refund-' . wp_rand( 100000, 999999 ),
+				) );
+				break;
+		}
+	}
+
+	/**
+     * Override feed settings fields to add testing settings.
+     *
+	 * @return array[]
+	 */
+    public function feed_settings_fields() {
+        $fields = parent::feed_settings_fields();
+
+	    // Remove subscription settings
+	    $fields = $this->remove_subscription_settings( $fields );
+
+        // Testing section
+        $fields[] = array(
+            'title'  => esc_html__( 'Testing', 'gwiz-dummy-payment-gateway' ),
+            'fields' => array(
+	            array(
+		            'name'    => 'capture_mode',
+		            'label'   => esc_html__( 'Capture Mode', 'gwiz-dummy-payment-gateway' ),
+		            'type'    => 'radio',
+                    'default_value' => 'immediate',
+		            'choices' => array(
+			            array(
+				            'label' => esc_html__( 'Immediate Capture', 'gwiz-dummy-payment-gateway' ),
+				            'value' => 'immediate',
+			            ),
+			            array(
+				            'label' => esc_html__( 'Delayed Capture', 'gwiz-dummy-payment-gateway' ),
+				            'value' => 'delayed',
+			            ),
+		            ),
+	            ),
+	            array(
+		            'name'    => 'fail_conditions',
+		            'label'   => esc_html__( 'Fail Conditions', 'gwiz-dummy-payment-gateway' ),
+		            'type'    => 'checkbox',
+		            'choices' => array(
+			            array(
+				            'label' => esc_html__( 'Fail During Authorization', 'gwiz-dummy-payment-gateway' ),
+				            'name'  => 'fail_authorization',
+			            ),
+			            array(
+				            'label' => esc_html__( 'Fail During Capture', 'gwiz-dummy-payment-gateway' ),
+				            'name'  => 'fail_capture',
+			            ),
+		            ),
+	            ),
+            ),
+        );
+
+        return $fields;
+    }
+	/**
+	 * Recursively remove subscription settings from fields.
+	 *
+	 * @param array $fields The fields array.
+	 * @return array The modified fields array.
+	 */
+	private function remove_subscription_settings( $fields ) {
+		foreach ($fields as $key => $field) {
+			if (isset($field['name']) && $field['name'] === 'transactionType') {
+				// Remove 'subscription' from transaction type choices
+				$fields[$key]['choices'] = array_filter($field['choices'], function ($choice) {
+					return $choice['value'] !== 'subscription';
+				});
+			}
+			if (isset($field['title']) && $field['title'] === esc_html__('Subscription Settings', 'gwiz-dummy-payment-gateway')) {
+				unset($fields[$key]);
+                continue;
+			}
+			if (isset($field['fields'])) {
+				$fields[$key]['fields'] = $this->remove_subscription_settings($field['fields']);
+			}
+		}
+		return $fields;
+	}
+
+	/**
+     * Override other settings fields to remove unneeded field map and "Options" field.
+     *
+	 * @return array
+	 */
+	public function other_settings_fields() {
+	    $other_settings = array();
+
+		$other_settings[] = array(
+			'name'    => 'conditionalLogic',
+			'label'   => esc_html__( 'Conditional Logic', 'gravityforms' ),
+			'type'    => 'feed_condition',
+			'tooltip' => '<h6>' . esc_html__( 'Conditional Logic', 'gravityforms' ) . '</h6>' . esc_html__( 'When conditions are enabled, form submissions will only be sent to the payment gateway when the conditions are met. When disabled, all form submissions will be sent to the payment gateway.', 'gravityforms' )
+		);
+
+		return $other_settings;
 	}
 
 	/**
@@ -118,17 +296,27 @@ class GWiz_Dummy_Payment_Gateway extends GFPaymentAddOn {
 	public function authorize( $feed, $submission_data, $form, $entry ) {
 		$this->log_debug( __METHOD__ . '(): Authorizing payment.' );
 
-		// Generate random transaction ID
-		$transaction_id = wp_rand( 100000, 999999 );
+        if ( rgars( $feed, 'meta/fail_authorization' ) ) {
+            return array(
+                'is_authorized' => false,
+                'is_success'    => false,
+                'error_message' => __( 'Testing authorization failure.', 'gwiz-dummy-payment-gateway' ),
+            );
+        }
 
 		// Success
 		return array(
 			'is_authorized'  => true,
-			'transaction_id' => 123,
+            'amount'         => $submission_data['payment_amount'],
+			'transaction_id' => 'auth-' . wp_rand( 100000, 999999 ),
 		);
+	}
 
-		// Error
-		// return array( 'error_message' => $error_message, 'is_success' => false, 'is_authorized' => false );
+	public function complete_authorization( &$entry, $action ) {
+        // Add payment_amount to the entry so we have the amount when we capture.
+        $entry['payment_amount'] = rgar( $action, 'amount' );
+
+		return parent::complete_authorization( $entry, $action );
 	}
 
 	/**
@@ -159,88 +347,42 @@ class GWiz_Dummy_Payment_Gateway extends GFPaymentAddOn {
 	 * }
 	 */
 	public function capture( $authorization, $feed, $submission_data, $form, $entry ) {
-		// If delayed...
-		return array();
+        if ( rgars( $feed, 'meta/fail_capture' ) ) {
+            return array(
+                'is_success'    => false,
+                'error_message' => __( 'Testing capture failure.', 'gwiz-dummy-payment-gateway' ),
+            );
+        }
 
-		// Error
-//		return array(
-//			'is_success'    => false,
-//			'error_message' => esc_html__( 'Cannot get payment intent data.', 'gravityformsstripe' ),
-//		);
+        if ( rgars( $feed, 'meta/capture_mode' ) === 'delayed' ) {
+            return array();
+        }
 
-		// Success
-//		return array(
-//			'is_success'     => true,
-//			'transaction_id' => $charge->id,
-//			'amount'         => $this->get_amount_import( $charge->amount, $entry['currency'] ),
-//			'payment_method' => rgpost( 'stripe_credit_card_type' ),
-//		);
-
-	}
-
-	/**
-	 * Override this method to add integration code to the payment processor in order to create a subscription.
-	 *
-	 * This method is executed during the form validation process and allows the form submission process to fail with a
-	 * validation error if there is anything wrong when creating the subscription.
-	 *
-	 * @since  Unknown
-	 * @access public
-	 *
-	 * @used-by GFPaymentAddOn::validation()
-	 *
-	 * @param array $feed            Current configured payment feed.
-	 * @param array $submission_data Contains form field data submitted by the user as well as payment information
-	 *                               (i.e. payment amount, setup fee, line items, etc...).
-	 * @param array $form            Current form array containing all form settings.
-	 * @param array $entry           Current entry array containing entry information (i.e data submitted by users).
-	 *                               NOTE: the entry hasn't been saved to the database at this point, so this $entry
-	 *                               object does not have the 'ID' property and is only a memory representation of the entry.
-	 *
-	 * @return array {
-	 *     Return an $subscription array in the following format:
-	 *
-	 *     @type bool   $is_success      If the subscription is successful.
-	 *     @type string $error_message   The error message, if applicable.
-	 *     @type string $subscription_id The subscription ID.
-	 *     @type int    $amount          The subscription amount.
-	 *     @type array  $captured_payment {
-	 *         If payment is captured, an additional array is created.
-	 *
-	 *         @type bool   $is_success     If the payment capture is successful.
-	 *         @type string $error_message  The error message, if any.
-	 *         @type string $transaction_id The transaction ID of the captured payment.
-	 *         @type int    $amount         The amount of the captured payment, if successful.
-	 *     }
-	 *
-	 * To implement an initial/setup fee for gateways that don't support setup fees as part of subscriptions, manually
-	 * capture the funds for the setup fee as a separate transaction and send that payment information in the
-	 * following 'captured_payment' array:
-	 *
-	 * 'captured_payment' => [
-	 *     'name'           => 'Setup Fee',
-	 *     'is_success'     => true|false,
-	 *     'error_message'  => 'error message',
-	 *     'transaction_id' => 'xxx',
-	 *     'amount'         => 20
-	 * ]
-	 */
-	public function subscribe( $feed, $submission_data, $form, $entry ) {
-		// Error
-		// return array( 'error_message' => $error_message, 'is_success' => false, 'is_authorized' => false );
-
-		// Success
 		return array(
-			'is_success'      => true,
-//			'subscription_id' => $stripe_response->subscription,
-//			'customer_id'     => $subscription->customer,
-//			'amount'          => $payment_amount,
+			'is_success'     => true,
+			'transaction_id' => 'paid-' . wp_rand( 100000, 999999 ),
+			'amount'         => $submission_data['payment_amount'],
+			'payment_method' => 'Dummy Gateway',
 		);
 	}
 
 	/**
-	 * @return array|bool|WP_Error Return a valid GF $action or if the webhook can't be processed a WP_Error object or false.
+	 * Complete payment (mark entry as complete and create note).
+	 *
+	 * @param array $entry  Entry data.
+	 * @param array $action Authorization data.
+	 *
+	 * @return bool
 	 */
-	public function callback() {
+	public function complete_payment( &$entry, $action ) {
+		parent::complete_payment( $entry, $action );
+
+		$transaction_id = rgar( 'transaction_id', $action );
+		$form           = GFAPI::get_form( $entry['form_id'] );
+		$feed           = $this->get_payment_feed( $entry, $form );
+
+		$this->trigger_payment_delayed_feeds( $transaction_id, $feed, $entry, $form );
+
+		return true;
 	}
 }
