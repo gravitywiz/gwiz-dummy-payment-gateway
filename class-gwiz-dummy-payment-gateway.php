@@ -108,21 +108,21 @@ class GWiz_Dummy_Payment_Gateway extends GFPaymentAddOn {
 				$button['label']      = __( 'Refund Payment', 'gwiz-dummy-payment-gateway' );
 				$button['api_action'] = 'refund';
 				break;
-            default:
-                _e( 'No testing actions available for this payment status.', 'gwiz-dummy-payment-gateway' );
-                return;
+			default:
+				_e( 'No testing actions available for this payment status.', 'gwiz-dummy-payment-gateway' );
+				return;
 		}
 
 		$spinner_url = GFCommon::get_base_url() . '/images/spinner.' . ( $this->is_gravityforms_supported( '2.5-beta' ) ? 'svg' : 'gif' );
 		?>
-        <input name="gwiz_dummy_gateway_nonce" type="hidden" value="<?php echo wp_create_nonce( 'gwiz_dummy_gateway_nonce' ); ?>"/>
+			<input name="gwiz_dummy_gateway_nonce" type="hidden" value="<?php echo wp_create_nonce( 'gwiz_dummy_gateway_nonce' ); ?>"/>
 
-        <button id="gwiz_dummy_gateway_<?php echo esc_attr( $button['api_action'] ); ?>"
-                class="button"
-                name="gwiz_dummy_gateway_action"
-                value="<?php echo esc_attr( $button['api_action'] ); ?>">
-			<?php echo esc_html( $button['label'] ); ?>
-        </button>
+			<button id="gwiz_dummy_gateway_<?php echo esc_attr( $button['api_action'] ); ?>"
+					class="button"
+					name="gwiz_dummy_gateway_action"
+					value="<?php echo esc_attr( $button['api_action'] ); ?>">
+				<?php echo esc_html( $button['label'] ); ?>
+			</button>
 		<?php
 	}
 
@@ -152,13 +152,13 @@ class GWiz_Dummy_Payment_Gateway extends GFPaymentAddOn {
 		switch ( $action ) {
 			case 'capture':
 				$this->complete_payment( $entry, array(
-					'amount' => $entry['payment_amount'],
+					'amount'         => $entry['payment_amount'],
 					'transaction_id' => 'paid-' . wp_rand( 100000, 999999 ),
 				) );
 				break;
 			case 'refund':
 				$this->refund_payment( $entry, array(
-					'amount' => $entry['payment_amount'],
+					'amount'         => $entry['payment_amount'],
 					'transaction_id' => 'refund-' . wp_rand( 100000, 999999 ),
 				) );
 				break;
@@ -166,56 +166,56 @@ class GWiz_Dummy_Payment_Gateway extends GFPaymentAddOn {
 	}
 
 	/**
-     * Override feed settings fields to add testing settings.
-     *
+	 * Override feed settings fields to add testing settings.
+	 *
 	 * @return array[]
 	 */
-    public function feed_settings_fields() {
-        $fields = parent::feed_settings_fields();
+	public function feed_settings_fields() {
+		$fields = parent::feed_settings_fields();
 
-	    // Remove subscription settings
-	    $fields = $this->remove_subscription_settings( $fields );
+		// Remove subscription settings
+		$fields = $this->remove_subscription_settings( $fields );
 
-        // Testing section
-        $fields[] = array(
-            'title'  => esc_html__( 'Testing', 'gwiz-dummy-payment-gateway' ),
-            'fields' => array(
-	            array(
-		            'name'    => 'capture_mode',
-		            'label'   => esc_html__( 'Capture Mode', 'gwiz-dummy-payment-gateway' ),
-		            'type'    => 'radio',
-                    'default_value' => 'immediate',
-		            'choices' => array(
-			            array(
-				            'label' => esc_html__( 'Immediate Capture', 'gwiz-dummy-payment-gateway' ),
-				            'value' => 'immediate',
-			            ),
-			            array(
-				            'label' => esc_html__( 'Delayed Capture', 'gwiz-dummy-payment-gateway' ),
-				            'value' => 'delayed',
-			            ),
-		            ),
-	            ),
-	            array(
-		            'name'    => 'fail_conditions',
-		            'label'   => esc_html__( 'Fail Conditions', 'gwiz-dummy-payment-gateway' ),
-		            'type'    => 'checkbox',
-		            'choices' => array(
-			            array(
-				            'label' => esc_html__( 'Fail During Authorization', 'gwiz-dummy-payment-gateway' ),
-				            'name'  => 'fail_authorization',
-			            ),
-			            array(
-				            'label' => esc_html__( 'Fail During Capture', 'gwiz-dummy-payment-gateway' ),
-				            'name'  => 'fail_capture',
-			            ),
-		            ),
-	            ),
-            ),
-        );
+		// Testing section
+		$fields[] = array(
+			'title'  => esc_html__( 'Testing', 'gwiz-dummy-payment-gateway' ),
+			'fields' => array(
+				array(
+					'name'          => 'capture_mode',
+					'label'         => esc_html__( 'Capture Mode', 'gwiz-dummy-payment-gateway' ),
+					'type'          => 'radio',
+					'default_value' => 'immediate',
+					'choices'       => array(
+						array(
+							'label' => esc_html__( 'Immediate Capture', 'gwiz-dummy-payment-gateway' ),
+							'value' => 'immediate',
+						),
+						array(
+							'label' => esc_html__( 'Delayed Capture', 'gwiz-dummy-payment-gateway' ),
+							'value' => 'delayed',
+						),
+					),
+				),
+				array(
+					'name'    => 'fail_conditions',
+					'label'   => esc_html__( 'Fail Conditions', 'gwiz-dummy-payment-gateway' ),
+					'type'    => 'checkbox',
+					'choices' => array(
+						array(
+							'label' => esc_html__( 'Fail During Authorization', 'gwiz-dummy-payment-gateway' ),
+							'name'  => 'fail_authorization',
+						),
+						array(
+							'label' => esc_html__( 'Fail During Capture', 'gwiz-dummy-payment-gateway' ),
+							'name'  => 'fail_capture',
+						),
+					),
+				),
+			),
+		);
 
-        return $fields;
-    }
+		return $fields;
+	}
 	/**
 	 * Recursively remove subscription settings from fields.
 	 *
@@ -223,37 +223,39 @@ class GWiz_Dummy_Payment_Gateway extends GFPaymentAddOn {
 	 * @return array The modified fields array.
 	 */
 	private function remove_subscription_settings( $fields ) {
-		foreach ($fields as $key => $field) {
-			if (isset($field['name']) && $field['name'] === 'transactionType') {
+		foreach ( $fields as $key => $field ) {
+			if ( isset( $field['name'] ) && $field['name'] === 'transactionType' ) {
 				// Remove 'subscription' from transaction type choices
-				$fields[$key]['choices'] = array_filter($field['choices'], function ($choice) {
+				$fields[ $key ]['choices'] = array_filter($field['choices'], function ( $choice ) {
 					return $choice['value'] !== 'subscription';
 				});
 			}
-			if (isset($field['title']) && $field['title'] === esc_html__('Subscription Settings', 'gwiz-dummy-payment-gateway')) {
-				unset($fields[$key]);
-                continue;
+
+			if ( isset( $field['title'] ) && $field['title'] === esc_html__( 'Subscription Settings', 'gwiz-dummy-payment-gateway' ) ) {
+				unset( $fields[ $key ] );
+				continue;
 			}
-			if (isset($field['fields'])) {
-				$fields[$key]['fields'] = $this->remove_subscription_settings($field['fields']);
+
+			if ( isset( $field['fields'] ) ) {
+				$fields[ $key ]['fields'] = $this->remove_subscription_settings( $field['fields'] );
 			}
 		}
 		return $fields;
 	}
 
 	/**
-     * Override other settings fields to remove unneeded field map and "Options" field.
-     *
+	 * Override other settings fields to remove unneeded field map and "Options" field.
+	 *
 	 * @return array
 	 */
 	public function other_settings_fields() {
-	    $other_settings = array();
+		$other_settings = array();
 
 		$other_settings[] = array(
 			'name'    => 'conditionalLogic',
 			'label'   => esc_html__( 'Conditional Logic', 'gravityforms' ),
 			'type'    => 'feed_condition',
-			'tooltip' => '<h6>' . esc_html__( 'Conditional Logic', 'gravityforms' ) . '</h6>' . esc_html__( 'When conditions are enabled, form submissions will only be sent to the payment gateway when the conditions are met. When disabled, all form submissions will be sent to the payment gateway.', 'gravityforms' )
+			'tooltip' => '<h6>' . esc_html__( 'Conditional Logic', 'gravityforms' ) . '</h6>' . esc_html__( 'When conditions are enabled, form submissions will only be sent to the payment gateway when the conditions are met. When disabled, all form submissions will be sent to the payment gateway.', 'gravityforms' ),
 		);
 
 		return $other_settings;
@@ -296,25 +298,25 @@ class GWiz_Dummy_Payment_Gateway extends GFPaymentAddOn {
 	public function authorize( $feed, $submission_data, $form, $entry ) {
 		$this->log_debug( __METHOD__ . '(): Authorizing payment.' );
 
-        if ( rgars( $feed, 'meta/fail_authorization' ) ) {
-            return array(
-                'is_authorized' => false,
-                'is_success'    => false,
-                'error_message' => __( 'Testing authorization failure.', 'gwiz-dummy-payment-gateway' ),
-            );
-        }
+		if ( rgars( $feed, 'meta/fail_authorization' ) ) {
+			return array(
+				'is_authorized' => false,
+				'is_success'    => false,
+				'error_message' => __( 'Testing authorization failure.', 'gwiz-dummy-payment-gateway' ),
+			);
+		}
 
 		// Success
 		return array(
 			'is_authorized'  => true,
-            'amount'         => $submission_data['payment_amount'],
+			'amount'         => $submission_data['payment_amount'],
 			'transaction_id' => 'auth-' . wp_rand( 100000, 999999 ),
 		);
 	}
 
 	public function complete_authorization( &$entry, $action ) {
-        // Add payment_amount to the entry so we have the amount when we capture.
-        $entry['payment_amount'] = rgar( $action, 'amount' );
+		// Add payment_amount to the entry so we have the amount when we capture.
+		$entry['payment_amount'] = rgar( $action, 'amount' );
 
 		return parent::complete_authorization( $entry, $action );
 	}
@@ -347,16 +349,16 @@ class GWiz_Dummy_Payment_Gateway extends GFPaymentAddOn {
 	 * }
 	 */
 	public function capture( $authorization, $feed, $submission_data, $form, $entry ) {
-        if ( rgars( $feed, 'meta/fail_capture' ) ) {
-            return array(
-                'is_success'    => false,
-                'error_message' => __( 'Testing capture failure.', 'gwiz-dummy-payment-gateway' ),
-            );
-        }
+		if ( rgars( $feed, 'meta/fail_capture' ) ) {
+			return array(
+				'is_success'    => false,
+				'error_message' => __( 'Testing capture failure.', 'gwiz-dummy-payment-gateway' ),
+			);
+		}
 
-        if ( rgars( $feed, 'meta/capture_mode' ) === 'delayed' ) {
-            return array();
-        }
+		if ( rgars( $feed, 'meta/capture_mode' ) === 'delayed' ) {
+			return array();
+		}
 
 		return array(
 			'is_success'     => true,

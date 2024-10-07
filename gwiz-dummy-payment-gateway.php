@@ -20,4 +20,4 @@ add_action( 'gform_loaded', function() {
 	require_once plugin_dir_path( __FILE__ ) . 'class-gwiz-dummy-payment-gateway.php';
 
 	GFAddOn::register( 'GWiz_Dummy_Payment_Gateway' );
-}, 5 ); // Load before Gravity Flow
+}, 5 );
